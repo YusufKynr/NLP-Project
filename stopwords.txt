@@ -118,7 +118,6 @@ derakap
 derhal
 derken
 deđil
-değil
 değin
 diye
 diđer
@@ -431,7 +430,6 @@ yetmiş
 yetmiţ
 yine
 yirmi
-yok
 yoksa
 yoluyla
 yüz

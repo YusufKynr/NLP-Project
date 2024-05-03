@@ -5,11 +5,23 @@ Created on Wed May  1 17:42:31 2024
 @author: yusuf
 """
 
+
 import numpy as np
 import pandas as pd
+import pandas as pd
+import keras
+import tensorflow as tf
+from sklearn.preprocessing import LabelEncoder
+from keras_preprocessing.text import Tokenizer
 
 
-yorumlar = pd.read_csv('veri_seti.csv')
+
+
+
+
+
+
+yorumlar = pd.read_csv('veri_seti.csv', sep=',', header=None, names=['sonuç', 'yorum'])
 
 "noktalama işaretleri,sembolleri sil"
 import re 
@@ -54,7 +66,6 @@ def removeStopwords(yorum):
 
 
 "olumsuz eki çıkartmama"
-
 def removeNegativeWord(yorum):
     index = 0
     while index < len(yorum):
@@ -103,7 +114,7 @@ y = yorumlar["sonuç"].values
 
 "Makine Öğrenmesi"
 from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20, random_state = 1)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20, random_state = None)
 
 from sklearn.naive_bayes import GaussianNB
 gnb = GaussianNB()
@@ -114,17 +125,53 @@ y_predict = gnb.predict(X_test)
 from sklearn.metrics import confusion_matrix
 cm = confusion_matrix(y_test, y_predict)
 
-# Toplam örnek sayısını hesapla
-toplam_ornek_sayisi = np.sum(cm)
+print("Naive Bayes Doğruluk:", (cm[0,0] + cm[1,1]) / np.sum(cm) *100)
+print(cm) #hata matrisi
 
-# Hata matrisini yüzdelik olarak hesapla
-yuzdelik_cm = cm / toplam_ornek_sayisi * 100
 
-# Köşegenin toplamını hesapla (doğru tahminlerin toplamı)
-dogru_tahminlar = np.sum(np.diag(cm))
 
-# Toplam yüzdeyi hesapla
-toplam_yuzde = dogru_tahminlar / toplam_ornek_sayisi * 100
 
-print("Toplam doğru sınıflandırma yüzdesi:", toplam_yuzde)
-print(cm)
+# Veri setini yükleme
+yorumlar = pd.read_csv('veri_seti.csv', sep=',', header=None, names=['sonuç', 'yorum'])
+
+# Metin ve etiketlerin ayrılması
+X = yorumlar['yorum'].values
+y = yorumlar['sonuç'].values
+
+# Etiketleri sayısal değerlere dönüştürme
+le = LabelEncoder()
+y = le.fit_transform(y)
+
+# Metin verisini sayısal vektörlere dönüştürme
+max_words = 1000
+max_len = 150
+tokenizer = Tokenizer(num_words=max_words, filters='!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n', lower=True)
+tokenizer.fit_on_texts(X)
+sequences = tokenizer.texts_to_sequences(X)
+X = tf.keras.utils.pad_sequences(sequences, maxlen=max_len)
+
+# Veri setini eğitim ve test setlerine böleme
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# LSTM tabanlı derin öğrenme modeli oluşturma
+embedding_dim = 500
+
+model = keras.Sequential()
+model.add(keras.layers.Embedding(max_words, embedding_dim, input_length=X.shape[1]))
+model.add(keras.layers.SpatialDropout1D(0.2))
+model.add(keras.layers.LSTM(100, dropout=0.2, recurrent_dropout=0.2))
+model.add(keras.layers.Dense(1, activation='sigmoid'))
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+
+# Modeli eğitme
+batch_size = 32
+epochs = 6
+model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_data=(X_test, y_test), verbose=2)
+
+# Modeli değerlendirme
+score = model.evaluate(X_test, y_test, verbose=0)
+print("Test Loss:", score[0])
+print("Test Accuracy:", score[1])
+
+
+
