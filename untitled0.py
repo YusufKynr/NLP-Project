@@ -16,8 +16,10 @@ import re
 
 
 yorum = ""
-sonuçlar = []
-stopwords = []
+sonuçlar = [] # olumsuz kelime hariç, verilerin son halidir
+stopwords = [] # türkçe stopwordsler
+veriler = [] # verilerin son halidir (olumsuz kelimeler dahil)
+çıkartılan = [] # olumsuz kelimelerin eklerini çıkartılmasını engellemek için
 
 "türkçe stopwordsleri dosyadan okuyup arraye aktar"
 with open("stopwords.txt", 'r', encoding='utf-8') as dosya:
@@ -52,7 +54,7 @@ def removeStopwords(yorum):
 
 
 "olumsuz eki çıkartmama"
-çıkartılan = []
+
 def removeNegativeWord(yorum):
     index = 0
     while index < len(yorum):
@@ -77,24 +79,52 @@ def stemmer(yorum):
 
 
 
-
-"Vektör sayacı"
-#from sklearn.feature_extraction.text import CountVectorizer
-#cv = CountVectorizer(max_features=(2000))
-#X = cv.fit_transform(results)
-veriler= []
 def main():
     for i in range(len(yorumlar)):
         yorum = re.sub('[^a-zA-ZçğıöşüÇĞİÖŞÜ]',' ', yorumlar["yorum"][i])
         veri(yorum,i)
-        stemmer(yorum)
         removeStopwords(yorum)
         removeNegativeWord(yorum) 
-        sonSonuç= sonuçlar + çıkartılan
+        stemmer(yorum)
+        sonSonuç = sonuçlar + çıkartılan
+        sonSonuç = ' '.join(sonSonuç)
         veriler.append(sonSonuç)
         çıkartılan.clear()
         sonuçlar.clear()
 
 
 main()
-print(veriler)
+
+"Vektör sayacı"
+from sklearn.feature_extraction.text import CountVectorizer
+cv = CountVectorizer(max_features=(2000))
+X = cv.fit_transform(veriler).toarray() #bağımsız değişken
+y = yorumlar["sonuç"].values
+
+"Makine Öğrenmesi"
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.20, random_state = 1)
+
+from sklearn.naive_bayes import GaussianNB
+gnb = GaussianNB()
+gnb.fit(X_train,y_train)
+
+"Hata matrixi hesaplama"
+y_predict = gnb.predict(X_test)
+from sklearn.metrics import confusion_matrix
+cm = confusion_matrix(y_test, y_predict)
+
+# Toplam örnek sayısını hesapla
+toplam_ornek_sayisi = np.sum(cm)
+
+# Hata matrisini yüzdelik olarak hesapla
+yuzdelik_cm = cm / toplam_ornek_sayisi * 100
+
+# Köşegenin toplamını hesapla (doğru tahminlerin toplamı)
+dogru_tahminlar = np.sum(np.diag(cm))
+
+# Toplam yüzdeyi hesapla
+toplam_yuzde = dogru_tahminlar / toplam_ornek_sayisi * 100
+
+print("Toplam doğru sınıflandırma yüzdesi:", toplam_yuzde)
+print(cm)
